@@ -2,13 +2,19 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 
-const petitions = [
-  { id: '1', title: 'Do not restrict the sale of energy drinks to under 16s', signatures: '124,502', status: 'Waiting for Government response' },
-  { id: '2', title: 'Review the current funding levels for SEND provision in schools', signatures: '88,291', status: 'Open' },
-  { id: '3', title: 'Fund research into more effective treatments for brain tumours', signatures: '215,667', status: 'Debated in Parliament' },
-];
-
 export const PetitionsList = () => {
+  const [petitions, setPetitions] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchPetitions = async () => {
+      try {
+        const res = await fetch('/api/petitions');
+        if (res.ok) setPetitions(await res.json());
+      } catch (err) { console.error(err); }
+    };
+    fetchPetitions();
+  }, []);
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -31,13 +37,13 @@ export const PetitionsList = () => {
             <h2 className="text-3xl font-bold border-b-4 border-gds-black pb-2 mb-6">Popular petitions</h2>
             <ul className="space-y-8">
               {petitions.map(p => (
-                <li key={p.id} className="border-b border-gray-200 pb-8">
-                  <a href="#" className="text-3xl font-bold text-gds-blue underline decoration-2 underline-offset-4 block mb-4">
+                <li key={p._id || p.id} className="border-b border-gray-200 pb-8">
+                  <Link to={`/petitions/${p._id || p.id}`} className="text-3xl font-bold text-gds-blue underline decoration-2 underline-offset-4 block mb-4">
                     {p.title}
-                  </a>
+                  </Link>
                   <div className="flex items-end gap-4">
                     <div className="flex flex-col">
-                      <span className="text-4xl font-bold">{p.signatures}</span>
+                      <span className="text-4xl font-bold">{p.signatures?.toLocaleString()}</span>
                       <span className="text-sm font-bold uppercase text-gds-dark-grey">signatures</span>
                     </div>
                     <div className="mb-1">

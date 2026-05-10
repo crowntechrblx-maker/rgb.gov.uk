@@ -1,5 +1,4 @@
 import React from 'react';
-import { CrownIcon } from './CrownIcon';
 import { Link } from 'react-router-dom';
 
 export const Header = () => {
@@ -8,7 +7,7 @@ export const Header = () => {
       <div className="govuk-header-container w-full py-2">
         <div className="flex items-center justify-between w-full">
           <Link to="/" className="flex items-center gap-2 hover:opacity-90 group transition-all">
-            <CrownIcon className="w-8 h-6 md:w-10 md:h-7" />
+            <img src="/logo.png" alt="GOV.UK" className="h-8 md:h-10 w-auto" referrerPolicy="no-referrer" />
             <span className="text-xl md:text-2xl font-bold tracking-tight">GOV.UK</span>
           </Link>
           

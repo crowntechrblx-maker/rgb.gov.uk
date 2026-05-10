@@ -18,6 +18,9 @@ import { BillsList } from './components/BillsList';
 import { PetitionsList } from './components/PetitionsList';
 import { MinistersList } from './components/MinistersList';
 import { StatementsList } from './components/StatementsList';
+import { StatementDetail } from './components/StatementDetail';
+import { PetitionDetail } from './components/PetitionDetail';
+import { Privacy, Cookies, Terms } from './components/Legal';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const auth = localStorage.getItem('gov_auth');
@@ -68,9 +71,9 @@ const Home = () => {
               {statements.slice(0, 3).map((s, i) => (
                 <div key={s.id || s._id || i} className="border-t-2 border-gray-200 pt-4">
                   <span className="text-sm text-gds-dark-grey block mb-1">{s.date} — Statement</span>
-                  <a href="#" className="text-xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue">
+                  <Link to={`/statements/${s._id || s.id}`} className="text-xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue">
                     {s.title}
-                  </a>
+                  </Link>
                 </div>
               ))}
 
@@ -140,8 +143,13 @@ export default function App() {
               />
               <Route path="/bills" element={<BillsList />} />
               <Route path="/petitions" element={<PetitionsList />} />
+              <Route path="/petitions/:id" element={<PetitionDetail />} />
               <Route path="/statements" element={<StatementsList />} />
+              <Route path="/statements/:id" element={<StatementDetail />} />
               <Route path="/ministers" element={<MinistersList />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/cookies" element={<Cookies />} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="*" element={<Home />} />
             </Routes>
           </AnimatePresence>

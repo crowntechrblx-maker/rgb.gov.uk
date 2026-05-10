@@ -47,9 +47,9 @@ export const StatementsList = () => {
               {statements.map((s, i) => (
                 <li key={s._id || s.id || i} className="border-b border-gray-200 pb-12">
                   <span className="text-sm font-bold text-gds-dark-grey block mb-2">{s.date}</span>
-                  <a href="#" className="text-3xl font-bold text-gds-blue underline block mb-4">
+                  <Link to={`/statements/${s._id || s.id}`} className="text-3xl font-bold text-gds-blue underline block mb-4">
                     {s.title}
-                  </a>
+                  </Link>
                   <p className="text-lg text-gds-black line-clamp-3 mb-4">{s.content}</p>
                   <span className="text-sm italic">Published by: {s.publisher}</span>
                 </li>

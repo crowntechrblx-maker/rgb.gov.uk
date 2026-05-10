@@ -22,7 +22,7 @@ export const Login = () => {
         localStorage.setItem('gov_auth', 'true');
         localStorage.setItem('gov_email', data.email);
         localStorage.setItem('gov_token', data.token);
-        localStorage.setItem('gov_isAdmin', data.isAdmin ? 'true' : 'false');
+        localStorage.setItem('gov_role', data.role);
         navigate('/dashboard');
       } else {
         alert(data.message || 'Login failed');

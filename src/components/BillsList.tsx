@@ -2,14 +2,19 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 
-const bills = [
-  { id: '1', title: 'Data Protection and Digital Information Bill', status: 'Royal Assent', house: 'Lords', type: 'Government' },
-  { id: '2', title: 'Automated Vehicles Bill [HL]', status: 'Second Reading', house: 'Commons', type: 'Government' },
-  { id: '3', title: 'Renters (Reform) Bill', status: 'Committee stage', house: 'Commons', type: 'Government' },
-  { id: '4', title: 'Digital Markets, Competition and Consumers Bill', status: 'Report stage', house: 'Lords', type: 'Government' },
-];
-
 export const BillsList = () => {
+  const [bills, setBills] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchBills = async () => {
+      try {
+        const res = await fetch('/api/bills');
+        if (res.ok) setBills(await res.json());
+      } catch (err) { console.error(err); }
+    };
+    fetchBills();
+  }, []);
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -67,18 +72,22 @@ export const BillsList = () => {
           </div>
 
           <ul className="space-y-4">
-            {bills.map(bill => (
-              <li key={bill.id} className="border-b border-gray-200 pb-4">
-                <a href="#" className="text-2xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue block mb-2">
-                  {bill.title}
-                </a>
-                <div className="flex flex-wrap gap-4 text-sm font-bold">
-                  <span className="bg-gds-grey px-2 py-0.5">Status: {bill.status}</span>
-                  <span className="text-gds-dark-grey mr-2 italic">Originating House: {bill.house}</span>
-                  <span className="text-gds-dark-grey italic">Type: {bill.type}</span>
-                </div>
-              </li>
-            ))}
+            {bills.length === 0 ? (
+              <p>No bills found in the database.</p>
+            ) : (
+              bills.map(bill => (
+                <li key={bill._id || bill.id} className="border-b border-gray-200 pb-4">
+                  <a href="#" className="text-2xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue block mb-2">
+                    {bill.title}
+                  </a>
+                  <div className="flex flex-wrap gap-4 text-sm font-bold">
+                    <span className="bg-gds-grey px-2 py-0.5">Status: {bill.status}</span>
+                    <span className="text-gds-dark-grey mr-2 italic">Originating House: {bill.house}</span>
+                    <span className="text-gds-dark-grey italic">Type: {bill.type}</span>
+                  </div>
+                </li>
+              ))
+            )}
           </ul>
         </div>
       </div>
