@@ -4,7 +4,7 @@
  */
 
 import React, { Suspense, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Header } from './components/Header';
 import { SearchHero } from './components/SearchHero';
@@ -21,12 +21,42 @@ import { StatementsList } from './components/StatementsList';
 import { StatementDetail } from './components/StatementDetail';
 import { PetitionDetail } from './components/PetitionDetail';
 import { BillDetail } from './components/BillDetail';
+import { GazetteList } from './components/GazetteList';
+import { UserProfile } from './components/UserProfile';
 import { SearchResults } from './components/SearchResults';
 import { Privacy, Cookies, Terms, Accessibility } from './components/Legal';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const auth = localStorage.getItem('gov_auth');
   return auth === 'true' ? <>{children}</> : <Navigate to="/login" />;
+};
+
+const AuthHandler = ({ children }: { children: React.ReactNode }) => {
+  const [params, setParams] = useSearchParams();
+  
+  useEffect(() => {
+    const token = params.get('auth_token');
+    const email = params.get('email');
+    const role = params.get('role');
+    const name = params.get('name');
+
+    if (token) {
+      localStorage.setItem('gov_auth', 'true');
+      localStorage.setItem('gov_token', token);
+      localStorage.setItem('gov_email', email || '');
+      localStorage.setItem('gov_role', role || '');
+      localStorage.setItem('gov_name', name || '');
+      
+      // Clean URL
+      params.delete('auth_token');
+      params.delete('email');
+      params.delete('role');
+      params.delete('name');
+      setParams(params);
+    }
+  }, [params, setParams]);
+
+  return <>{children}</>;
 };
 
 const Home = () => {
@@ -139,31 +169,35 @@ export default function App() {
         
         <main className="flex-grow">
           <AnimatePresence mode="wait">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route 
-                path="/dashboard" 
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                } 
-              />
-              <Route path="/bills" element={<BillsList />} />
-              <Route path="/bills/:id" element={<BillDetail />} />
-              <Route path="/petitions" element={<PetitionsList />} />
-              <Route path="/petitions/:id" element={<PetitionDetail />} />
-              <Route path="/statements" element={<StatementsList />} />
-              <Route path="/statements/:id" element={<StatementDetail />} />
-              <Route path="/ministers" element={<MinistersList />} />
-              <Route path="/search" element={<SearchResults />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/cookies" element={<Cookies />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/accessibility" element={<Accessibility />} />
-              <Route path="*" element={<Home />} />
-            </Routes>
+            <AuthHandler>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route 
+                  path="/dashboard" 
+                  element={
+                    <PrivateRoute>
+                      <Dashboard />
+                    </PrivateRoute>
+                  } 
+                />
+                <Route path="/bills" element={<BillsList />} />
+                <Route path="/bills/:id" element={<BillDetail />} />
+                <Route path="/petitions" element={<PetitionsList />} />
+                <Route path="/petitions/:id" element={<PetitionDetail />} />
+                <Route path="/statements" element={<StatementsList />} />
+                <Route path="/statements/:id" element={<StatementDetail />} />
+                <Route path="/ministers" element={<MinistersList />} />
+                <Route path="/gazette" element={<GazetteList />} />
+                <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+                <Route path="/search" element={<SearchResults />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/cookies" element={<Cookies />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/accessibility" element={<Accessibility />} />
+                <Route path="*" element={<Home />} />
+              </Routes>
+            </AuthHandler>
           </AnimatePresence>
         </main>
         

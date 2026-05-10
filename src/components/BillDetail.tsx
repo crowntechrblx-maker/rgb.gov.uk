@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Clock, FileText, Landmark } from 'lucide-react';
+import { ArrowLeft, Clock, FileText, Landmark, Heart } from 'lucide-react';
 
 export const BillDetail = () => {
   const { id } = useParams();
   const [bill, setBill] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const token = localStorage.getItem('gov_token');
 
   useEffect(() => {
     fetch(`/api/bills/${id}`)
@@ -19,7 +21,36 @@ export const BillDetail = () => {
         console.error(err);
         setLoading(false);
       });
-  }, [id]);
+
+    if (token) {
+      fetch('/api/profile', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(profile => {
+          setIsFollowing(profile.followedBills?.some((b: any) => b._id === id || b === id));
+        });
+    }
+  }, [id, token]);
+
+  const handleFollow = async () => {
+    if (!token) {
+      alert("Please sign in to follow bills.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/profile/follow/bill/${id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setIsFollowing(!isFollowing);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   if (loading) return (
     <div className="py-20 text-center bg-white min-h-screen">
@@ -117,7 +148,18 @@ export const BillDetail = () => {
                 </div>
               </dl>
 
-              <div className="mt-8 pt-8 border-t border-gray-300">
+              <div className="mt-8 pt-8 border-t border-gray-300 space-y-4">
+                <button 
+                  onClick={handleFollow}
+                  className={`w-full py-3 font-bold flex items-center justify-center gap-2 border-2 transition-all ${
+                    isFollowing 
+                    ? 'border-red-600 text-red-600 hover:bg-red-50' 
+                    : 'border-gds-black text-gds-black hover:bg-gray-50'
+                  }`}
+                >
+                  <Heart className={`w-5 h-5 ${isFollowing ? 'fill-red-600' : ''}`} />
+                  {isFollowing ? 'Following' : 'Follow this Bill'}
+                </button>
                 <button className="w-full bg-gds-black text-white py-3 font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors">
                   <FileText className="w-5 h-5" /> Download text of the Bill
                 </button>

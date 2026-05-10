@@ -5,6 +5,9 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import cors from "cors";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 
 const app = express();
 const PORT = 3000;
@@ -15,6 +18,19 @@ app.use(cors());
 // --- Database Connectivity ---
 const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+// Session middleware for Passport
+app.use(session({
+  secret: JWT_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production' }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 async function seedData() {
   if (MONGODB_URI) {
@@ -47,8 +63,25 @@ if (MONGODB_URI) {
 // --- Models ---
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  password: { type: String }, // Optional if using Google
+  googleId: { type: String },
+  name: { type: String },
   role: { type: String, enum: ['USER', 'CLERK', 'MEMBER', 'ADMIN'], default: 'USER' },
+  followedBills: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Bill' }],
+  followedPetitions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Petition' }],
+  preferences: {
+    notifications: { type: Boolean, default: true },
+    theme: { type: String, default: 'light' }
+  }
+});
+
+const gazetteSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  content: { type: String, required: true },
+  category: { type: String, enum: ['State', 'Parliament', 'Public Notices', 'Appointments'], default: 'State' },
+  noticeNumber: { type: String, unique: true },
+  date: { type: String, required: true },
+  publishedAt: { type: Date, default: Date.now }
 });
 
 const statementSchema = new mongoose.Schema({
@@ -108,6 +141,54 @@ const Statement = mongoose.model("Statement", statementSchema);
 const Petition = mongoose.model("Petition", petitionSchema);
 const Bill = mongoose.model("Bill", billSchema);
 const Minister = mongoose.model("Minister", ministerSchema);
+const Gazette = mongoose.model("Gazette", gazetteSchema);
+
+// --- Passport Google Strategy ---
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    callbackURL: "/api/auth/google/callback",
+    proxy: true
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      let user = await User.findOne({ 
+        $or: [
+          { googleId: profile.id }, 
+          { email: profile.emails?.[0].value }
+        ]
+      });
+
+      if (!user) {
+        user = new User({
+          googleId: profile.id,
+          email: profile.emails?.[0].value,
+          name: profile.displayName,
+          role: profile.emails?.[0].value === "crowntechrblx@gmail.com" ? "ADMIN" : "USER"
+        });
+        await user.save();
+      } else if (!user.googleId) {
+        user.googleId = profile.id;
+        if (!user.name) user.name = profile.displayName;
+        await user.save();
+      }
+
+      return done(null, user);
+    } catch (err) {
+      return done(err);
+    }
+  }));
+
+  passport.serializeUser((user: any, done) => done(null, user.id));
+  passport.deserializeUser(async (id, done) => {
+    try {
+      const user = await User.findById(id);
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
+  });
+}
 
 // --- Auth Middleware ---
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -157,14 +238,18 @@ app.post("/api/login", async (req, res) => {
         user = new User({ 
           email, 
           password: hashedPassword,
-          role: 'ADMIN'
+          role: 'ADMIN',
+          name: 'System Admin'
         });
         await user.save();
       } else {
         return res.status(401).json({ message: "No account found. Please contact an administrator." });
       }
     } else {
-      const validPassword = await bcrypt.compare(password, user.password);
+      if (!user.password && user.googleId) {
+        return res.status(401).json({ message: "Please use 'Sign in with Google' for this account." });
+      }
+      const validPassword = await bcrypt.compare(password, user.password!);
       if (!validPassword) return res.status(403).json({ message: "Invalid credentials" });
       
       if (isInitialAdmin && user.role !== 'ADMIN') {
@@ -173,13 +258,37 @@ app.post("/api/login", async (req, res) => {
       }
     }
 
-    const token = jwt.sign({ userId: user._id, email: user.email, role: user.role }, JWT_SECRET);
-    res.json({ token, email: user.email, role: user.role });
+    const token = jwt.sign({ userId: user._id, email: user.email, role: user.role, name: user.name }, JWT_SECRET);
+    res.json({ token, email: user.email, role: user.role, name: user.name });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// Google Auth Routes
+app.get("/api/auth/google", (req, res, next) => {
+  if (!GOOGLE_CLIENT_ID) {
+    return res.status(503).json({ error: "Google OAuth not configured." });
+  }
+  next();
+}, passport.authenticate("google", { scope: ["profile", "email"] }));
+
+app.get("/api/auth/google/callback", 
+  passport.authenticate("google", { failureRedirect: "/login?error=google-failed" }),
+  (req, res) => {
+    const user = req.user as any;
+    const token = jwt.sign({ 
+      userId: user._id, 
+      email: user.email, 
+      role: user.role,
+      name: user.name 
+    }, JWT_SECRET);
+    
+    // Redirect back to frontend with token
+    res.redirect(`/?auth_token=${token}&email=${user.email}&role=${user.role}&name=${encodeURIComponent(user.name || '')}`);
+  }
+);
 
 // --- Admin: User Management ---
 app.get("/api/users", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
@@ -443,6 +552,63 @@ app.delete("/api/ministers/:id", authenticateToken, checkRole(['ADMIN']), async 
     res.json({ message: "Minister removed" });
   } catch (err) {
     res.status(500).json({ error: "Failed to delete minister" });
+  }
+});
+
+// Gazette
+app.get("/api/gazette", async (req, res) => {
+  try {
+    const notices = await Gazette.find().sort({ publishedAt: -1 });
+    res.json(notices);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch Gazette" });
+  }
+});
+
+app.post("/api/gazette", authenticateToken, checkRole(['ADMIN', 'CLERK']), async (req, res) => {
+  try {
+    const noticeNumber = `L-${Math.floor(10000 + Math.random() * 90000)}`;
+    const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const notice = new Gazette({ ...req.body, noticeNumber, date });
+    await notice.save();
+    res.status(201).json(notice);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create Gazette notice" });
+  }
+});
+
+// User Preferences & Following
+app.get("/api/profile", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById((req as any).user.userId)
+      .populate('followedBills')
+      .populate('followedPetitions');
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch profile" });
+  }
+});
+
+app.post("/api/profile/follow/:type/:id", authenticateToken, async (req, res) => {
+  const { type, id } = req.params;
+  try {
+    const user = await User.findById((req as any).user.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const collection = type === 'bill' ? 'followedBills' : 'followedPetitions';
+    const list = user[collection] as any[];
+    
+    const index = list.indexOf(id);
+    if (index > -1) {
+      list.splice(index, 1);
+    } else {
+      list.push(id);
+    }
+    
+    await user.save();
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update follows" });
   }
 });
 
