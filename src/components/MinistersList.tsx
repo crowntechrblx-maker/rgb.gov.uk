@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 export const MinistersList = () => {
   const [ministers, setMinisters] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [selectedDept, setSelectedDept] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     fetch('/api/ministers')
@@ -19,8 +20,14 @@ export const MinistersList = () => {
       });
   }, []);
 
-  const cabinetMinisters = ministers.filter(m => m.isCabinet);
-  const otherMinisters = ministers.filter(m => !m.isCabinet);
+  const departments = Array.from(new Set(ministers.map(m => m.department))).sort();
+
+  const filteredMinisters = selectedDept 
+    ? ministers.filter(m => m.department === selectedDept)
+    : ministers;
+
+  const cabinetMinisters = filteredMinisters.filter(m => m.isCabinet);
+  const otherMinisters = filteredMinisters.filter(m => !m.isCabinet);
 
   return (
     <motion.div 
@@ -36,6 +43,27 @@ export const MinistersList = () => {
         </p>
       </div>
 
+      <div className="mb-12 p-6 bg-gds-grey border-t-4 border-gds-blue">
+        <h3 className="text-lg font-bold mb-4">View ministers by department</h3>
+        <div className="flex flex-wrap gap-2">
+          <button 
+            onClick={() => setSelectedDept(null)}
+            className={`px-3 py-1 text-sm font-bold border-2 ${!selectedDept ? 'bg-gds-black text-white border-gds-black' : 'bg-white border-gds-black hover:bg-gray-100'}`}
+          >
+            All Departments
+          </button>
+          {departments.map(dept => (
+            <button 
+              key={dept}
+              onClick={() => setSelectedDept(dept)}
+              className={`px-3 py-1 text-sm font-bold border-2 ${selectedDept === dept ? 'bg-gds-black text-white border-gds-black' : 'bg-white border-gds-black hover:bg-gray-100'}`}
+            >
+              {dept}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-12">
         {loading ? (
           <div className="py-20 text-center">
@@ -44,31 +72,35 @@ export const MinistersList = () => {
           </div>
         ) : (
           <>
-            <section>
-              <h2 className="text-3xl font-bold border-b-4 border-gds-black pb-2 mb-8">Cabinet ministers</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {cabinetMinisters.map((m, i) => (
-                  <div key={m._id || i} className="flex gap-6 border-b border-gray-200 pb-6">
-                    <div className="w-24 h-32 bg-gray-200 shrink-0 flex items-center justify-center text-gray-400">
-                      {m.photoUrl ? (
-                         <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      ) : (
-                         <span className="text-xs">Photo</span>
-                      )}
+            {cabinetMinisters.length > 0 && (
+              <section>
+                <h2 className="text-3xl font-bold border-b-4 border-gds-black pb-2 mb-8">Cabinet ministers</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {cabinetMinisters.map((m, i) => (
+                    <div key={m._id || i} className="flex gap-6 border-b border-gray-200 pb-6">
+                      <div className="w-24 h-32 bg-gray-200 shrink-0 flex items-center justify-center text-gray-400">
+                        {m.photoUrl ? (
+                           <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                           <span className="text-xs">Photo</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xl font-bold text-gds-blue underline decoration-2 cursor-pointer leading-tight">{m.name}</span>
+                        <span className="text-sm font-bold text-gds-black">{m.title}</span>
+                        <span className="text-xs text-gds-dark-grey">{m.department}</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xl font-bold text-gds-blue underline decoration-2 cursor-pointer">{m.name}</span>
-                      <span className="text-sm font-bold text-gds-black">{m.title}</span>
-                      <span className="text-xs text-gds-dark-grey">{m.department}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {otherMinisters.length > 0 && (
               <section>
-                <h2 className="text-3xl font-bold border-b-4 border-gds-black pb-2 mb-8 mt-12">Also attends Cabinet</h2>
+                <h2 className="text-3xl font-bold border-b-4 border-gds-black pb-2 mb-8 mt-12">
+                  {selectedDept ? `Other ministers in ${selectedDept}` : 'Also attends Cabinet'}
+                </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {otherMinisters.map((m, i) => (
                     <div key={m._id || i} className="flex gap-6 border-b border-gray-200 pb-6">
@@ -80,7 +112,7 @@ export const MinistersList = () => {
                         )}
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="text-xl font-bold text-gds-blue underline decoration-2 cursor-pointer">{m.name}</span>
+                        <span className="text-xl font-bold text-gds-blue underline decoration-2 cursor-pointer leading-tight">{m.name}</span>
                         <span className="text-sm font-bold text-gds-black">{m.title}</span>
                         <span className="text-xs text-gds-dark-grey">{m.department}</span>
                       </div>
@@ -89,14 +121,14 @@ export const MinistersList = () => {
                 </div>
               </section>
             )}
+            
+            {filteredMinisters.length === 0 && (
+               <div className="p-12 border-2 border-dashed border-gray-300 text-center">
+                 <p className="text-xl font-bold">No ministers found for this selection.</p>
+               </div>
+            )}
           </>
         )}
-
-        <div className="bg-gds-grey p-8 mt-12">
-          <h3 className="text-2xl font-bold mb-4">View ministers by department</h3>
-          <p className="mb-6">Find out who governs each government department.</p>
-          <button className="inline-block bg-gds-black text-white px-6 py-2 font-bold">View all departments</button>
-        </div>
       </div>
     </motion.div>
   );

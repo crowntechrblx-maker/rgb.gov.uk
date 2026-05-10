@@ -8,7 +8,8 @@ import {
   CheckCircle2, 
   Clock, 
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  Activity
 } from 'lucide-react';
 
 interface Statement {
@@ -25,6 +26,18 @@ export const Dashboard = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [statementImageUrl, setStatementImageUrl] = useState('');
+
+  const handleDeleteStatement = async (id: string) => {
+    if (!confirm("Are you sure? This news item will be permanently removed.")) return;
+    try {
+      const res = await fetch(`/api/statements/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) fetchStatements();
+    } catch (err) { console.error(err); }
+  };
+
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
@@ -454,14 +467,24 @@ export const Dashboard = () => {
                   )}
                 </div>
                 {/* Statement List logic... */}
-                <div className="space-y-4">
-                  {statements.map((s, i) => (
-                    <div key={s._id || i} className="bg-white p-4 border-l-4 border-gds-blue shadow-sm">
-                      <h3 className="font-bold">{s.title}</h3>
-                      <p className="text-sm text-gds-dark-grey">{s.date}</p>
-                    </div>
-                  ))}
-                </div>
+                  <div className="space-y-4">
+                    {statements.map((s, i) => (
+                      <div key={s._id || i} className="bg-white p-4 border-l-4 border-gds-blue shadow-sm flex justify-between items-center">
+                        <div>
+                          <h3 className="font-bold">{s.title}</h3>
+                          <p className="text-sm text-gds-dark-grey">{s.date}</p>
+                        </div>
+                        {userRole === 'ADMIN' && (
+                          <button 
+                            onClick={() => handleDeleteStatement(s._id!)}
+                            className="text-red-600 font-bold text-xs underline"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
               </section>
             )}
 
@@ -485,7 +508,22 @@ export const Dashboard = () => {
                   ) : (
                     petitions.map((p, i) => (
                       <div key={p._id || i} className="bg-white p-4 border-l-4 border-purple-600 shadow-sm">
-                        <Link to={`/petitions/${p._id || p.id}`} className="font-bold text-gds-blue underline">{p.title}</Link>
+                        <div className="flex justify-between items-start mb-2">
+                          <Link to={`/petitions/${p._id || p.id}`} className="font-bold text-gds-blue underline">{p.title}</Link>
+                          {userRole === 'ADMIN' && (
+                            <button 
+                              onClick={async () => {
+                                if (confirm("Delete this petition?")) {
+                                  await fetch(`/api/petitions/${p._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }});
+                                  fetchPetitions();
+                                }
+                              }}
+                              className="text-red-600 font-bold text-xs underline"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                         <div className="flex justify-between items-center mt-2">
                           <span className="text-sm font-bold text-gds-dark-grey">{p.signatures} signatures</span>
                           {canReplyToPetitions && p.status === 'Open' && (
@@ -530,16 +568,31 @@ export const Dashboard = () => {
                       </div>
                       <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
                         <span className="text-sm font-bold text-gds-dark-grey italic">{b.status}</span>
-                        <button 
-                          onClick={() => {
-                            setUpdatingBill(b);
-                            setNewBillStatus(b.status);
-                            setNewBillStage(b.stage);
-                          }}
-                          className="text-gds-blue underline text-sm font-bold"
-                        >
-                          Update Status
-                        </button>
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={() => {
+                              setUpdatingBill(b);
+                              setNewBillStatus(b.status);
+                              setNewBillStage(b.stage);
+                            }}
+                            className="text-gds-blue underline text-sm font-bold"
+                          >
+                            Update Status
+                          </button>
+                          {userRole === 'ADMIN' && (
+                            <button 
+                              onClick={async () => {
+                                if (confirm("Delete this bill?")) {
+                                  await fetch(`/api/bills/${b._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }});
+                                  fetchBills();
+                                }
+                              }}
+                              className="text-red-600 underline text-sm font-bold"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -558,28 +611,48 @@ export const Dashboard = () => {
                     Add Minister
                   </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {ministers.map((m, i) => (
-                    <div key={m._id || i} className="bg-white p-4 border-l-4 border-gds-blue shadow-sm flex items-center gap-4">
-                      <div className="w-12 h-16 bg-gray-200 shrink-0">
-                        {m.photoUrl && <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" />}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-sm leading-tight">{m.name}</h3>
-                        <p className="text-[10px] text-gds-dark-grey">{m.title}</p>
-                        <div className="flex gap-2 mt-1">
-                          {m.isCabinet && <span className="text-[9px] font-bold bg-purple-100 text-purple-700 px-1">CABINET</span>}
-                          <button 
-                            onClick={() => handleDeleteMinister(m._id)}
-                            className="text-[9px] font-bold text-red-600 underline"
-                          >
-                            Delete
-                          </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {ministers.map((m, i) => (
+                      <div key={m._id || i} className="bg-white p-4 border-l-4 border-gds-blue shadow-sm flex items-center gap-4">
+                        <div className="w-12 h-16 bg-gray-200 shrink-0">
+                          {m.photoUrl && <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" />}
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-sm leading-tight">{m.name}</h3>
+                          <p className="text-[10px] text-gds-dark-grey">{m.title}</p>
+                          <div className="flex items-center justify-between mt-2">
+                             <div className="flex gap-2">
+                                {m.isCabinet && <span className="text-[9px] font-bold bg-purple-100 text-purple-700 px-1">CABINET</span>}
+                                <button 
+                                  onClick={() => handleDeleteMinister(m._id)}
+                                  className="text-[9px] font-bold text-red-600 underline"
+                                >
+                                  Delete
+                                </button>
+                             </div>
+                             <div className="flex items-center gap-1 group">
+                               <label className="text-[9px] font-bold text-gray-400">Order:</label>
+                               <input 
+                                 type="number"
+                                 className="w-8 text-[10px] border border-gray-200 p-0.5"
+                                 defaultValue={m.sortOrder || 99}
+                                 onBlur={async (e) => {
+                                   const newOrder = parseInt(e.target.value);
+                                   if (newOrder !== m.sortOrder) {
+                                      await fetch(`/api/ministers/${m._id}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                        body: JSON.stringify({ sortOrder: newOrder })
+                                      });
+                                   }
+                                 }}
+                               />
+                             </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
               </section>
             )}
 
@@ -629,6 +702,11 @@ export const Dashboard = () => {
                 <li><Link to="/bills" className="text-gds-blue underline">View public bills database</Link></li>
                 <li><Link to="/petitions" className="text-gds-blue underline">View active petitions</Link></li>
                 <li><Link to="/statements" className="text-gds-blue underline">View all statements</Link></li>
+              <li className="pt-4 border-t border-gray-100">
+                  <Link to="/status" className="text-gds-blue font-bold text-sm flex items-center gap-2">
+                    <Activity className="w-4 h-4" /> System Service Status
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

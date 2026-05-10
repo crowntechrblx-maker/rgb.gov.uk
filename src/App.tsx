@@ -24,6 +24,7 @@ import { BillDetail } from './components/BillDetail';
 import { GazetteList } from './components/GazetteList';
 import { UserProfile } from './components/UserProfile';
 import { SearchResults } from './components/SearchResults';
+import { ServiceStatus } from './components/ServiceStatus';
 import { Privacy, Cookies, Terms, Accessibility } from './components/Legal';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -189,6 +190,7 @@ export default function App() {
                 <Route path="/statements/:id" element={<StatementDetail />} />
                 <Route path="/ministers" element={<MinistersList />} />
                 <Route path="/gazette" element={<GazetteList />} />
+                <Route path="/status" element={<ServiceStatus />} />
                 <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
                 <Route path="/search" element={<SearchResults />} />
                 <Route path="/privacy" element={<Privacy />} />
