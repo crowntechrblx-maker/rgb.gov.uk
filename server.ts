@@ -8,10 +8,15 @@ import cors from "cors";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import dotenv from "dotenv";
+import MongoStore from "connect-mongo";
+
+dotenv.config();
 
 const app = express();
 const PORT = 3000;
 
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(cors());
 
@@ -26,7 +31,11 @@ app.use(session({
   secret: JWT_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production' }
+  store: MONGODB_URI ? MongoStore.create({ mongoUrl: MONGODB_URI }) : undefined,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production' || !!process.env.VERCEL,
+    maxAge: 1000 * 60 * 60 * 24 // 24 hours
+  }
 }));
 
 app.use(passport.initialize());
@@ -211,6 +220,15 @@ const checkRole = (roles: string[]) => (req: any, res: any, next: any) => {
 };
 
 // --- API Routes ---
+
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    googleAuth: !!GOOGLE_CLIENT_ID,
+    mongodb: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+  });
+});
 
 const ADMIN_EMAIL = "crowntechrblx@gmail.com";
 const ADMIN_SETUP_PASSWORD = process.env.ADMIN_SETUP_PASSWORD || "gov-admin-2026"; // Fallback for first time only
@@ -669,8 +687,10 @@ app.use("/api/*", (req, res) => {
 });
 
 // --- Vite Integration ---
+export default app;
+
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -684,9 +704,11 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
