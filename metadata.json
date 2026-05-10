@@ -1,0 +1,6 @@
+{
+  "name": "GOV.UK Prototype",
+  "description": "A 1:1 React prototype of the GOV.UK website using the official Government Design System (GDS) patterns, featuring high-fidelity components and responsive layout.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

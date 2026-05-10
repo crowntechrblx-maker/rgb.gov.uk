@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gds-blue: #1d70b8;
+  --color-gds-black: #0b0c0c;
+  --color-gds-grey: #f3f2f1;
+  --color-gds-dark-grey: #505a5f;
+  --color-gds-yellow: #ffdd00;
+  --color-gds-hover-blue: #003078;
+  
+  --font-sans: "GDS Transport", "GDS Transport New", Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-gds-black font-sans leading-relaxed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus {
+    @apply outline-none ring-4 ring-gds-yellow bg-gds-yellow text-gds-black ring-offset-0;
+  }
+
+  /* Specific override for focus where background shouldn't change radically */
+  a:focus, button:focus {
+    @apply bg-gds-yellow text-gds-black shadow-[0_4px_0_#0b0c0c];
+  }
+}
+
+/* GDS Specific patterns */
+.govuk-width-container {
+  @apply max-w-[960px] mx-auto px-4 md:px-8;
+}
+
+.govuk-header-container {
+  @apply max-w-[960px] mx-auto px-4 md:px-8 flex items-center justify-between;
+}
+
+@font-face {
+  font-family: 'GDS Transport';
+  src: url('https://raw.githubusercontent.com/alphagov/govuk-frontend/main/src/govuk/vendor/fonts/light-94a10e4e-f.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'GDS Transport';
+  src: url('https://raw.githubusercontent.com/alphagov/govuk-frontend/main/src/govuk/vendor/fonts/bold-b542fda4-f.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+}
