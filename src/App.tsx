@@ -20,7 +20,9 @@ import { MinistersList } from './components/MinistersList';
 import { StatementsList } from './components/StatementsList';
 import { StatementDetail } from './components/StatementDetail';
 import { PetitionDetail } from './components/PetitionDetail';
-import { Privacy, Cookies, Terms } from './components/Legal';
+import { BillDetail } from './components/BillDetail';
+import { SearchResults } from './components/SearchResults';
+import { Privacy, Cookies, Terms, Accessibility } from './components/Legal';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const auth = localStorage.getItem('gov_auth');
@@ -69,19 +71,26 @@ const Home = () => {
               
               {/* Dynamic Statements */}
               {statements.slice(0, 3).map((s, i) => (
-                <div key={s.id || s._id || i} className="border-t-2 border-gray-200 pt-4">
-                  <span className="text-sm text-gds-dark-grey block mb-1">{s.date} — Statement</span>
-                  <Link to={`/statements/${s._id || s.id}`} className="text-xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue">
-                    {s.title}
-                  </Link>
+                <div key={s.id || s._id || i} className="border-t-2 border-gray-200 pt-4 flex gap-4">
+                  {s.imageUrl && (
+                    <div className="w-16 h-12 bg-gray-100 shrink-0 overflow-hidden">
+                      <img src={s.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <span className="text-sm text-gds-dark-grey block mb-1">{s.date} — Statement</span>
+                    <Link to={`/statements/${s._id || s.id}`} className="text-xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue">
+                      {s.title}
+                    </Link>
+                  </div>
                 </div>
               ))}
 
               <div className="border-t-2 border-gray-200 pt-4">
                 <span className="text-sm text-gds-dark-grey block mb-1">10 May 2026 — News story</span>
-                <a href="#" className="text-xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue">
+                <Link to="/statements" className="text-xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue">
                   Prime Minister announces new measures to support small businesses
-                </a>
+                </Link>
               </div>
             </div>
             
@@ -89,8 +98,8 @@ const Home = () => {
               <div className="bg-gds-grey p-8 flex flex-col gap-4">
                 <h3 className="text-2xl font-bold">Find out how government works</h3>
                 <ul className="space-y-4">
-                  <li><a href="#" className="text-lg font-bold text-gds-blue underline">Get involved and have your say</a></li>
-                  <li><a href="#" className="text-lg font-bold text-gds-blue underline">How government is run and structured</a></li>
+                  <li><Link to="/petitions" className="text-lg font-bold text-gds-blue underline">Get involved and have your say</Link></li>
+                  <li><Link to="/ministers" className="text-lg font-bold text-gds-blue underline">How government is run and structured</Link></li>
                 </ul>
               </div>
             </div>
@@ -142,14 +151,17 @@ export default function App() {
                 } 
               />
               <Route path="/bills" element={<BillsList />} />
+              <Route path="/bills/:id" element={<BillDetail />} />
               <Route path="/petitions" element={<PetitionsList />} />
               <Route path="/petitions/:id" element={<PetitionDetail />} />
               <Route path="/statements" element={<StatementsList />} />
               <Route path="/statements/:id" element={<StatementDetail />} />
               <Route path="/ministers" element={<MinistersList />} />
+              <Route path="/search" element={<SearchResults />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/cookies" element={<Cookies />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/accessibility" element={<Accessibility />} />
               <Route path="*" element={<Home />} />
             </Routes>
           </AnimatePresence>

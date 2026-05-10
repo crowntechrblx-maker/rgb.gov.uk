@@ -15,26 +15,37 @@ export const PetitionDetail = () => {
 
   const fetchPetition = async () => {
     try {
-      const res = await fetch('/api/petitions');
+      const res = await fetch(`/api/petitions/${id}`);
       if (res.ok) {
-        const list = await res.json();
-        const item = list.find((p: any) => p._id === id || p.id === id);
+        const item = await res.json();
         setPetition(item);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Failed to fetch petition:", errorData);
       }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
+  const [email, setEmail] = useState('');
+
   const handleSign = async () => {
-    if (!userToken) {
-      alert("Please sign in to sign a petition.");
-      return;
+    let finalEmail = email;
+    if (!userToken && !email) {
+      const input = prompt("Please enter your email to sign this petition:");
+      if (!input) return;
+      finalEmail = input;
     }
+    
     setSigning(true);
     try {
       const res = await fetch(`/api/petitions/${id}/sign`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${userToken}` }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': userToken ? `Bearer ${userToken}` : '' 
+        },
+        body: JSON.stringify({ email: finalEmail })
       });
       if (res.ok) {
         alert("Petition signed successfully!");
@@ -70,7 +81,7 @@ export const PetitionDetail = () => {
               <h2 className="text-2xl font-bold mb-4">Government Response</h2>
               {petition.responses.map((r: any, i: number) => (
                 <div key={i} className="space-y-2">
-                  <p className="text-sm italic mb-2">Published {r.date} by {r.author} ({r.authorRole})</p>
+                  <p className="text-sm font-bold mb-2">Published {r.date} by {r.authorRole === 'MEMBER' ? 'the Government' : 'the Portal Administrator'}</p>
                   <p className="whitespace-pre-wrap">{r.content}</p>
                 </div>
               ))}

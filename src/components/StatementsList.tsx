@@ -45,13 +45,20 @@ export const StatementsList = () => {
           ) : (
             <ul className="space-y-12">
               {statements.map((s, i) => (
-                <li key={s._id || s.id || i} className="border-b border-gray-200 pb-12">
-                  <span className="text-sm font-bold text-gds-dark-grey block mb-2">{s.date}</span>
-                  <Link to={`/statements/${s._id || s.id}`} className="text-3xl font-bold text-gds-blue underline block mb-4">
-                    {s.title}
-                  </Link>
-                  <p className="text-lg text-gds-black line-clamp-3 mb-4">{s.content}</p>
-                  <span className="text-sm italic">Published by: {s.publisher}</span>
+                <li key={s._id || s.id || i} className="border-b border-gray-200 pb-12 flex flex-col md:flex-row gap-8">
+                  {s.imageUrl && (
+                    <div className="md:w-1/4 aspect-video overflow-hidden bg-gray-100 shrink-0">
+                      <img src={s.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <span className="text-sm font-bold text-gds-dark-grey block mb-2">{s.date}</span>
+                    <Link to={`/statements/${s._id || s.id}`} className="text-3xl font-bold text-gds-blue underline block mb-4">
+                      {s.title}
+                    </Link>
+                    <p className="text-lg text-gds-black line-clamp-3 mb-4">{s.content}</p>
+                    <span className="text-sm italic">Published by: {s.publisher}</span>
+                  </div>
                 </li>
               ))}
             </ul>

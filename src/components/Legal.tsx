@@ -55,3 +55,18 @@ export const Terms = () => (
     <p>Users must not post any content that is offensive, illegal, or impersonates real government officials for malicious purposes.</p>
   </LegalLayout>
 );
+
+export const Accessibility = () => (
+  <LegalLayout title="Accessibility statement">
+    <p>This accessibility statement applies to the GOV.UK Prototype platform.</p>
+    <h2 className="text-2xl font-bold mt-8">Conformance status</h2>
+    <p>We want as many people as possible to be able to use this prototype. For example, that means you should be able to:</p>
+    <ul className="list-disc pl-6 space-y-2">
+      <li>Change colors, contrast levels and fonts</li>
+      <li>Zoom in up to 300% without the text spilling off the screen</li>
+      <li>Navigate most of the website using just a keyboard</li>
+    </ul>
+    <h2 className="text-2xl font-bold mt-8">Feedback and contact information</h2>
+    <p>If you need information on this website in a different format like accessible PDF, large print, easy read, audio recording or braille, please contact us via the prototype dashboard feedback system (if available).</p>
+  </LegalLayout>
+);

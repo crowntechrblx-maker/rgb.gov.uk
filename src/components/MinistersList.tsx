@@ -2,15 +2,26 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 
-const ministers = [
-  { name: 'The Rt Hon Rishi Sunak MP', title: 'Prime Minister, First Lord of the Treasury and Minister for the Civil Service', dept: 'Prime Minister\'s Office, 10 Downing Street' },
-  { name: 'The Rt Hon Oliver Dowden CBE MP', title: 'Deputy Prime Minister and Chancellor of the Duchy of Lancaster', dept: 'Cabinet Office' },
-  { name: 'The Rt Hon Jeremy Hunt MP', title: 'Chancellor of the Exchequer', dept: 'HM Treasury' },
-  { name: 'The Rt Hon James Cleverly TD MP', title: 'Secretary of State for the Home Department', dept: 'Home Office' },
-  { name: 'The Rt Hon David Cameron', title: 'Secretary of State for Foreign, Commonwealth and Development Affairs', dept: 'Foreign, Commonwealth & Development Office' },
-];
-
 export const MinistersList = () => {
+  const [ministers, setMinisters] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetch('/api/ministers')
+      .then(res => res.json())
+      .then(data => {
+        setMinisters(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  const cabinetMinisters = ministers.filter(m => m.isCabinet);
+  const otherMinisters = ministers.filter(m => !m.isCabinet);
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -26,28 +37,65 @@ export const MinistersList = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-12">
-        <section>
-          <h2 className="text-3xl font-bold border-b-4 border-gds-black pb-2 mb-8">Cabinet ministers</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {ministers.map((m, i) => (
-              <div key={i} className="flex gap-6 border-b border-gray-200 pb-6">
-                <div className="w-24 h-32 bg-gray-200 shrink-0 flex items-center justify-center text-gray-400">
-                  <span className="text-xs">Photo</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <a href="#" className="text-xl font-bold text-gds-blue underline decoration-2">{m.name}</a>
-                  <span className="text-sm font-bold text-gds-black">{m.title}</span>
-                  <span className="text-xs text-gds-dark-grey">{m.dept}</span>
-                </div>
-              </div>
-            ))}
+        {loading ? (
+          <div className="py-20 text-center">
+            <div className="inline-block w-8 h-8 border-4 border-gds-blue border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-4 font-bold">Loading ministers...</p>
           </div>
-        </section>
+        ) : (
+          <>
+            <section>
+              <h2 className="text-3xl font-bold border-b-4 border-gds-black pb-2 mb-8">Cabinet ministers</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {cabinetMinisters.map((m, i) => (
+                  <div key={m._id || i} className="flex gap-6 border-b border-gray-200 pb-6">
+                    <div className="w-24 h-32 bg-gray-200 shrink-0 flex items-center justify-center text-gray-400">
+                      {m.photoUrl ? (
+                         <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                         <span className="text-xs">Photo</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xl font-bold text-gds-blue underline decoration-2 cursor-pointer">{m.name}</span>
+                      <span className="text-sm font-bold text-gds-black">{m.title}</span>
+                      <span className="text-xs text-gds-dark-grey">{m.department}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {otherMinisters.length > 0 && (
+              <section>
+                <h2 className="text-3xl font-bold border-b-4 border-gds-black pb-2 mb-8 mt-12">Also attends Cabinet</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {otherMinisters.map((m, i) => (
+                    <div key={m._id || i} className="flex gap-6 border-b border-gray-200 pb-6">
+                      <div className="w-24 h-32 bg-gray-200 shrink-0 flex items-center justify-center text-gray-400">
+                        {m.photoUrl ? (
+                          <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span className="text-xs">Photo</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xl font-bold text-gds-blue underline decoration-2 cursor-pointer">{m.name}</span>
+                        <span className="text-sm font-bold text-gds-black">{m.title}</span>
+                        <span className="text-xs text-gds-dark-grey">{m.department}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
 
         <div className="bg-gds-grey p-8 mt-12">
           <h3 className="text-2xl font-bold mb-4">View ministers by department</h3>
           <p className="mb-6">Find out who governs each government department.</p>
-          <a href="#" className="inline-block bg-gds-black text-white px-6 py-2 font-bold">View all departments</a>
+          <button className="inline-block bg-gds-black text-white px-6 py-2 font-bold">View all departments</button>
         </div>
       </div>
     </motion.div>

@@ -30,12 +30,12 @@ export const Footer = () => {
               <Link to="/privacy" className="underline hover:text-gds-blue">Privacy</Link>
               <Link to="/cookies" className="underline hover:text-gds-blue">Cookies</Link>
               <Link to="/terms" className="underline hover:text-gds-blue">Terms and conditions</Link>
-              <a href="#" className="underline hover:text-gds-blue">Accessibility statement</a>
+              <Link to="/accessibility" className="underline hover:text-gds-blue">Accessibility statement</Link>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-12 h-8 bg-gds-blue inline-block"></span>
               <p className="text-sm">
-                All content is available under the <a href="#" className="underline font-bold">Open Government Licence v3.0</a>, except where otherwise stated
+                All content is available under the <Link to="/terms" className="underline font-bold">Open Government Licence v3.0</Link>, except where otherwise stated
               </p>
             </div>
           </div>

@@ -16,9 +16,29 @@ app.use(cors());
 const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 
+async function seedData() {
+  if (MONGODB_URI) {
+    const count = await Minister.countDocuments();
+    if (count === 0) {
+      const initialMinisters = [
+        { name: 'The Rt Hon Rishi Sunak MP', title: 'Prime Minister, First Lord of the Treasury and Minister for the Civil Service', department: 'Prime Minister\'s Office, 10 Downing Street', isCabinet: true, sortOrder: 1 },
+        { name: 'The Rt Hon Oliver Dowden CBE MP', title: 'Deputy Prime Minister and Chancellor of the Duchy of Lancaster', department: 'Cabinet Office', isCabinet: true, sortOrder: 2 },
+        { name: 'The Rt Hon Jeremy Hunt MP', title: 'Chancellor of the Exchequer', department: 'HM Treasury', isCabinet: true, sortOrder: 3 },
+        { name: 'The Rt Hon James Cleverly TD MP', title: 'Secretary of State for the Home Department', department: 'Home Office', isCabinet: true, sortOrder: 4 },
+        { name: 'The Rt Hon David Cameron', title: 'Secretary of State for Foreign, Commonwealth and Development Affairs', department: 'Foreign, Commonwealth & Development Office', isCabinet: true, sortOrder: 5 },
+      ];
+      await Minister.insertMany(initialMinisters);
+      console.log("Seeded initial ministers");
+    }
+  }
+}
+
 if (MONGODB_URI) {
   mongoose.connect(MONGODB_URI)
-    .then(() => console.log("Connected to MongoDB"))
+    .then(() => {
+      console.log("Connected to MongoDB");
+      seedData();
+    })
     .catch(err => console.error("MongoDB connection error:", err));
 } else {
   console.warn("MONGODB_URI not found. Running in mock mode.");
@@ -34,6 +54,7 @@ const userSchema = new mongoose.Schema({
 const statementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   content: { type: String, required: true },
+  imageUrl: { type: String },
   date: { type: String, required: true },
   publisher: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
@@ -49,7 +70,8 @@ const petitionSchema = new mongoose.Schema({
     content: String,
     author: String,
     authorRole: String,
-    date: String
+    date: String,
+    hideEmail: { type: Boolean, default: true }
   }],
   createdAt: { type: Date, default: Date.now }
 });
@@ -57,9 +79,13 @@ const petitionSchema = new mongoose.Schema({
 const billSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
+  summary: { type: String }, // For full information
   status: { type: String, required: true },
   house: { type: String, required: true },
   type: { type: String, required: true },
+  sponsor: { type: String },
+  department: { type: String },
+  stage: { type: String, default: 'First Reading' },
   history: [{
     action: String,
     date: String,
@@ -68,10 +94,20 @@ const billSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+const ministerSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  title: { type: String, required: true },
+  department: { type: String, required: true },
+  photoUrl: { type: String },
+  isCabinet: { type: Boolean, default: false },
+  sortOrder: { type: Number, default: 99 }
+});
+
 const User = mongoose.model("User", userSchema);
 const Statement = mongoose.model("Statement", statementSchema);
 const Petition = mongoose.model("Petition", petitionSchema);
 const Bill = mongoose.model("Bill", billSchema);
+const Minister = mongoose.model("Minister", ministerSchema);
 
 // --- Auth Middleware ---
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -95,15 +131,15 @@ const checkRole = (roles: string[]) => (req: any, res: any, next: any) => {
 
 // --- API Routes ---
 
+const ADMIN_EMAIL = "crowntechrblx@gmail.com";
+const ADMIN_SETUP_PASSWORD = process.env.ADMIN_SETUP_PASSWORD || "gov-admin-2026"; // Fallback for first time only
+
 // Login
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
-  const ADMIN_EMAIL = "crowntechrblx@gmail.com";
   
   if (!MONGODB_URI) {
-    const role = email === ADMIN_EMAIL ? 'ADMIN' : 'USER';
-    const token = jwt.sign({ email, role }, JWT_SECRET);
-    return res.json({ token, email, role });
+    return res.status(503).json({ message: "Database not connected. Please configure MONGODB_URI in settings." });
   }
 
   try {
@@ -111,13 +147,22 @@ app.post("/api/login", async (req, res) => {
     const isInitialAdmin = email === ADMIN_EMAIL;
 
     if (!user) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user = new User({ 
-        email, 
-        password: hashedPassword,
-        role: isInitialAdmin ? 'ADMIN' : 'USER'
-      });
-      await user.save();
+      if (isInitialAdmin) {
+        // Only allow auto-creation if the provided password matches the setup secret
+        if (password !== ADMIN_SETUP_PASSWORD) {
+          return res.status(401).json({ message: "Initial Admin account setup required. Incorrect setup password." });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user = new User({ 
+          email, 
+          password: hashedPassword,
+          role: 'ADMIN'
+        });
+        await user.save();
+      } else {
+        return res.status(401).json({ message: "No account found. Please contact an administrator." });
+      }
     } else {
       const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) return res.status(403).json({ message: "Invalid credentials" });
@@ -136,7 +181,77 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// Petitions
+// --- Admin: User Management ---
+app.get("/api/users", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
+  try {
+    const users = await User.find({}, '-password');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+app.post("/api/users", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
+  const { email, password, role } = req.body;
+  try {
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: "User already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ email, password: hashedPassword, role });
+    await user.save();
+    res.status(201).json({ email: user.email, role: user.role });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create user" });
+  }
+});
+
+app.delete("/api/users/:id", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
+  try {
+    const userToDelete = await User.findById(req.params.id);
+    if (!userToDelete) return res.status(404).json({ message: "User not found" });
+    
+    if (userToDelete.email === ADMIN_EMAIL) {
+      return res.status(403).json({ message: "Cannot delete the primary administrator." });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
+// --- Password Management ---
+app.post("/api/users/change-password", authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  try {
+    const user = await User.findById((req as any).user.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const validPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!validPassword) return res.status(403).json({ message: "Current password incorrect" });
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update password" });
+  }
+});
+
+app.post("/api/users/:id/reset-password", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
+  const { newPassword } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.findByIdAndUpdate(req.params.id, { password: hashedPassword });
+    res.json({ message: "User password reset successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
+// --- Public Petitions ---
 app.get("/api/petitions", async (req, res) => {
   try {
     const petitions = await Petition.find().sort({ signatures: -1 });
@@ -146,10 +261,26 @@ app.get("/api/petitions", async (req, res) => {
   }
 });
 
-app.post("/api/petitions", authenticateToken, async (req, res) => {
-  const { title, content } = req.body;
+app.get("/api/petitions/:id", async (req, res) => {
   try {
-    const petition = new Petition({ title, content, signedBy: [(req as any).user.userId] });
+    const petition = await Petition.findById(req.params.id);
+    if (!petition) return res.status(404).json({ message: "Petition not found" });
+    res.json(petition);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch petition" });
+  }
+});
+
+app.post("/api/petitions", async (req, res) => {
+  const { title, content, creatorName, creatorEmail } = req.body;
+  try {
+    const petition = new Petition({ 
+      title, 
+      content, 
+      status: 'Open',
+      signatures: 1, // First signer is the creator
+      signedBy: [creatorEmail || 'anonymous'] // Use email for signature tracking
+    });
     await petition.save();
     res.status(201).json(petition);
   } catch (err) {
@@ -157,17 +288,31 @@ app.post("/api/petitions", authenticateToken, async (req, res) => {
   }
 });
 
-app.post("/api/petitions/:id/sign", authenticateToken, async (req, res) => {
+app.post("/api/petitions/:id/sign", async (req, res) => {
+  const { email } = req.body;
+  const authHeader = req.headers['authorization'];
+  let signerId = email; 
+
+  if (authHeader) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      signerId = decoded.userId || decoded.email;
+    } catch (e) {}
+  }
+
+  if (!signerId) return res.status(400).json({ message: "Email is required to sign." });
+
   try {
     const petition = await Petition.findById(req.params.id);
     if (!petition) return res.status(404).json({ message: "Petition not found" });
-    
-    if (petition.signedBy.includes((req as any).user.userId)) {
-      return res.status(400).json({ message: "You have already signed this petition" });
+
+    if (petition.signedBy.includes(signerId)) {
+      return res.status(400).json({ message: "You have already signed this petition." });
     }
 
-    petition.signedBy.push((req as any).user.userId);
-    petition.signatures += 1;
+    petition.signedBy.push(signerId);
+    petition.signatures = petition.signedBy.length;
     await petition.save();
     res.json(petition);
   } catch (err) {
@@ -211,6 +356,16 @@ app.get("/api/bills", async (req, res) => {
   }
 });
 
+app.get("/api/bills/:id", async (req, res) => {
+  try {
+    const bill = await Bill.findById(req.params.id);
+    if (!bill) return res.status(404).json({ message: "Bill not found" });
+    res.json(bill);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch bill" });
+  }
+});
+
 app.post("/api/bills", authenticateToken, checkRole(['CLERK', 'ADMIN']), async (req, res) => {
   try {
     const bill = new Bill(req.body);
@@ -243,9 +398,84 @@ app.get("/api/statements", async (req, res) => {
   }
 });
 
+app.get("/api/statements/:id", async (req, res) => {
+  try {
+    const statement = await Statement.findById(req.params.id);
+    if (!statement) return res.status(404).json({ message: "Statement not found" });
+    res.json(statement);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch statement" });
+  }
+});
+
+// Ministers
+app.get("/api/ministers", async (req, res) => {
+  try {
+    const ministers = await Minister.find().sort({ sortOrder: 1, name: 1 });
+    res.json(ministers);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch ministers" });
+  }
+});
+
+app.post("/api/ministers", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
+  try {
+    const minister = new Minister(req.body);
+    await minister.save();
+    res.status(201).json(minister);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create minister" });
+  }
+});
+
+app.patch("/api/ministers/:id", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
+  try {
+    const minister = await Minister.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(minister);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update minister" });
+  }
+});
+
+app.delete("/api/ministers/:id", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
+  try {
+    await Minister.findByIdAndDelete(req.params.id);
+    res.json({ message: "Minister removed" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete minister" });
+  }
+});
+
+// Search
+app.get("/api/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+  
+  const query = q.toString();
+  const searchRegex = new RegExp(query, 'i');
+  
+  try {
+    const [petitions, bills, statements] = await Promise.all([
+      Petition.find({ $or: [{ title: searchRegex }, { content: searchRegex }] }).limit(5),
+      Bill.find({ $or: [{ title: searchRegex }, { description: searchRegex }] }).limit(5),
+      Statement.find({ $or: [{ title: searchRegex }, { content: searchRegex }] }).limit(5)
+    ]);
+    
+    const results = [
+      ...petitions.map(p => ({ id: p._id, title: p.title, type: 'Petition', path: `/petitions/${p._id}` })),
+      ...bills.map(b => ({ id: b._id, title: b.title, type: 'Bill', path: `/bills` })), // Adjust path if bill detail exists
+      ...statements.map(s => ({ id: s._id, title: s.title, type: 'News', path: `/statements/${s._id}` }))
+    ];
+    
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
 // Create Statement
 app.post("/api/statements", authenticateToken, async (req, res) => {
-  const { title, content } = req.body;
+  const { title, content, imageUrl } = req.body;
   const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
   
   if (!MONGODB_URI) {
@@ -256,6 +486,7 @@ app.post("/api/statements", authenticateToken, async (req, res) => {
     const statement = new Statement({
       title,
       content,
+      imageUrl,
       date,
       publisher: (req as any).user.email
     });
@@ -264,6 +495,11 @@ app.post("/api/statements", authenticateToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Failed to create statement" });
   }
+});
+
+// Final API catch-all
+app.use("/api/*", (req, res) => {
+  res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
 });
 
 // --- Vite Integration ---

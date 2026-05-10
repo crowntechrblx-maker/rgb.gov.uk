@@ -16,23 +16,26 @@ export const Login = () => {
         body: JSON.stringify({ email, password }),
       });
       
-      const data = await response.json();
-      
-      if (response.ok) {
-        localStorage.setItem('gov_auth', 'true');
-        localStorage.setItem('gov_email', data.email);
-        localStorage.setItem('gov_token', data.token);
-        localStorage.setItem('gov_role', data.role);
-        navigate('/dashboard');
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await response.json();
+        if (response.ok) {
+          localStorage.setItem('gov_auth', 'true');
+          localStorage.setItem('gov_email', data.email);
+          localStorage.setItem('gov_token', data.token);
+          localStorage.setItem('gov_role', data.role);
+          navigate('/dashboard');
+        } else {
+          alert(data.message || 'Login failed');
+        }
       } else {
-        alert(data.message || 'Login failed');
+        const text = await response.text();
+        console.error("Server returned non-JSON response:", text);
+        alert("Server error: Received invalid response from portal. Please try again later.");
       }
     } catch (err) {
       console.error('Login error:', err);
-      // Fallback for demo if backend is not ready
-      localStorage.setItem('gov_auth', 'true');
-      localStorage.setItem('gov_email', email);
-      navigate('/dashboard');
+      alert("Network error: Could not connect to the government portal.");
     }
   };
 
@@ -43,7 +46,11 @@ export const Login = () => {
       className="govuk-width-container py-12 md:py-20"
     >
       <div className="max-w-xl">
-        <h1 className="text-4xl font-bold mb-8">Sign in</h1>
+        <h1 className="text-4xl font-bold mb-6">Sign in</h1>
+        <p className="text-xl mb-8 text-gds-dark-grey">
+          Use your official staff credentials to access the administrative portal. 
+          Members of the public do not need an account to start petitions.
+        </p>
         
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="flex flex-col gap-2">

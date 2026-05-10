@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const services = [
   { title: 'Parliament bills database', description: 'Search and track the progress of bills through Parliament.', path: '/bills' },
@@ -18,10 +19,10 @@ export const PopularServices = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {services.map((service, index) => (
             <div key={index} className="group cursor-pointer border-t border-gray-200 pt-6">
-              <a href={service.path} className="text-xl md:text-2xl font-bold text-gds-blue underline decoration-2 underline-offset-4 group-hover:text-gds-hover-blue mb-2 flex items-center gap-2">
+              <Link to={service.path} className="text-xl md:text-2xl font-bold text-gds-blue underline decoration-2 underline-offset-4 group-hover:text-gds-hover-blue mb-2 flex items-center gap-2">
                 {service.title}
                 <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </a>
+              </Link>
               <p className="text-lg text-gds-black mt-2">
                 {service.description}
               </p>

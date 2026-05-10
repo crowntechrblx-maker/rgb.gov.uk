@@ -77,9 +77,9 @@ export const BillsList = () => {
             ) : (
               bills.map(bill => (
                 <li key={bill._id || bill.id} className="border-b border-gray-200 pb-4">
-                  <a href="#" className="text-2xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue block mb-2">
+                  <Link to={`/bills/${bill._id || bill.id}`} className="text-2xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue block mb-2">
                     {bill.title}
-                  </a>
+                  </Link>
                   <div className="flex flex-wrap gap-4 text-sm font-bold">
                     <span className="bg-gds-grey px-2 py-0.5">Status: {bill.status}</span>
                     <span className="text-gds-dark-grey mr-2 italic">Originating House: {bill.house}</span>
