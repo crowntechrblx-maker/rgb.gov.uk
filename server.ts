@@ -52,7 +52,36 @@ async function seedData() {
         { name: 'The Rt Hon David Cameron', title: 'Secretary of State for Foreign, Commonwealth and Development Affairs', department: 'Foreign, Commonwealth & Development Office', isCabinet: true, sortOrder: 5 },
       ];
       await Minister.insertMany(initialMinisters);
-      console.log("Seeded initial ministers");
+      
+      // Seed initial Alert
+      await Alert.create({
+        title: "National Emergency Alert Test",
+        content: "This is a test of the GOV.UK Emergency Alert system. No action is required.",
+        severity: "Monitor",
+        active: true
+      });
+
+      // Seed initial Timeline
+      await TimelineEvent.insertMany([
+        { title: "GOV.UK Beta Launch", description: "The first version of GOV.UK was launched to the public.", date: "Feb 2012", type: "Digital", sortOrder: 1 },
+        { title: "Universal Credit Digital Service", description: "Modernizing the welfare system with a simple digital interface.", date: "Nov 2014", type: "Service", sortOrder: 2 },
+        { title: "GDS Created", description: "The Government Digital Service was established to transform government.", date: "Apr 2011", type: "Milestone", sortOrder: 0 }
+      ]);
+
+      // Seed initial Guide
+      await Guide.create({
+        title: "Set up a business",
+        slug: "set-up-business",
+        description: "What you need to do to set up a business in the UK.",
+        category: "Business",
+        steps: [
+          { title: "Check if being self-employed is right for you", content: "You're self-employed if you run your business for yourself and take responsibility for its success or failure.", type: "Info" },
+          { title: "Choose a business legal structure", content: "Most businesses in the UK are either sole traders, limited companies or business partnerships.", type: "Action" },
+          { title: "Register your business", content: "You must tell HM Revenue and Customs (HMRC) that you're self-employed so they know you need to pay tax through Self Assessment.", type: "Action" }
+        ]
+      });
+
+      console.log("Seeded initial data including Alerts, Timeline, and Guides");
     }
   }
 }
@@ -81,15 +110,6 @@ const userSchema = new mongoose.Schema({
     notifications: { type: Boolean, default: true },
     theme: { type: String, default: 'light' }
   }
-});
-
-const gazetteSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  category: { type: String, enum: ['State', 'Parliament', 'Public Notices', 'Appointments'], default: 'State' },
-  noticeNumber: { type: String, unique: true },
-  date: { type: String, required: true },
-  publishedAt: { type: Date, default: Date.now }
 });
 
 const statementSchema = new mongoose.Schema({
@@ -144,12 +164,43 @@ const ministerSchema = new mongoose.Schema({
   sortOrder: { type: Number, default: 99 }
 });
 
+const alertSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  content: { type: String, required: true },
+  severity: { type: String, enum: ['Extreme', 'Severe', 'Monitor'], default: 'Monitor' },
+  active: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const timelineSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  date: { type: String, required: true },
+  icon: { type: String },
+  type: { type: String, enum: ['Policy', 'Service', 'Digital', 'Milestone'], default: 'Milestone' },
+  sortOrder: { type: Number, default: 0 }
+});
+
+const guideSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String },
+  slug: { type: String, required: true, unique: true },
+  steps: [{
+    title: String,
+    content: String,
+    type: { type: String, enum: ['Info', 'Action', 'Finish'], default: 'Info' }
+  }],
+  category: { type: String, default: 'Living in the UK' }
+});
+
 const User = mongoose.model("User", userSchema);
 const Statement = mongoose.model("Statement", statementSchema);
 const Petition = mongoose.model("Petition", petitionSchema);
 const Bill = mongoose.model("Bill", billSchema);
 const Minister = mongoose.model("Minister", ministerSchema);
-const Gazette = mongoose.model("Gazette", gazetteSchema);
+const Alert = mongoose.model("Alert", alertSchema);
+const TimelineEvent = mongoose.model("TimelineEvent", timelineSchema);
+const Guide = mongoose.model("Guide", guideSchema);
 
 // --- Passport Google Strategy ---
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
@@ -163,16 +214,16 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
       let user = await User.findOne({ 
         $or: [
           { googleId: profile.id }, 
-          { email: profile.emails?.[0].value }
+          { email: profile.emails?.[0]?.value }
         ]
       });
 
       if (!user) {
         user = new User({
           googleId: profile.id,
-          email: profile.emails?.[0].value,
+          email: profile.emails?.[0]?.value,
           name: profile.displayName,
-          role: profile.emails?.[0].value === "crowntechrblx@gmail.com" ? "ADMIN" : "USER"
+          role: profile.emails?.[0]?.value === "crowntechrblx@gmail.com" ? "ADMIN" : "USER"
         });
         await user.save();
       } else if (!user.googleId) {
@@ -242,7 +293,6 @@ app.get("/api/status", async (req, res) => {
         { name: "Admin Dashboard", status: "Operational", latency: "15ms" },
         { name: "Identity Service (Google)", status: GOOGLE_CLIENT_ID ? "Operational" : "Degraded" },
         { name: "Database (MongoDB)", status: mongoose.connection.readyState === 1 ? "Operational" : "Critical", latency: `${dbLatency}ms` },
-        { name: "Gazette Registry", status: "Operational" },
         { name: "Petition Verification", status: "Operational" }
       ],
       overall: "All systems operational"
@@ -622,37 +672,6 @@ app.delete("/api/ministers/:id", authenticateToken, checkRole(['ADMIN']), async 
   }
 });
 
-// Gazette
-app.get("/api/gazette", async (req, res) => {
-  try {
-    const notices = await Gazette.find().sort({ publishedAt: -1 });
-    res.json(notices);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch Gazette" });
-  }
-});
-
-app.post("/api/gazette", authenticateToken, checkRole(['ADMIN', 'CLERK']), async (req, res) => {
-  try {
-    const noticeNumber = `L-${Math.floor(10000 + Math.random() * 90000)}`;
-    const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-    const notice = new Gazette({ ...req.body, noticeNumber, date });
-    await notice.save();
-    res.status(201).json(notice);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to create Gazette notice" });
-  }
-});
-
-app.delete("/api/gazette/:id", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
-  try {
-    await Gazette.findByIdAndDelete(req.params.id);
-    res.json({ message: "Notice deleted" });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to delete notice" });
-  }
-});
-
 // User Preferences & Following
 app.get("/api/profile", authenticateToken, async (req, res) => {
   try {
@@ -712,6 +731,56 @@ app.get("/api/search", async (req, res) => {
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: "Search failed" });
+  }
+});
+
+// Guides
+app.get("/api/guides", async (req, res) => {
+  try {
+    const guides = await Guide.find().sort({ title: 1 });
+    res.json(guides);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch guides" });
+  }
+});
+
+app.get("/api/guides/:slug", async (req, res) => {
+  try {
+    const guide = await Guide.findOne({ slug: req.params.slug });
+    if (!guide) return res.status(404).json({ message: "Guide not found" });
+    res.json(guide);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch guide" });
+  }
+});
+
+// Timeline
+app.get("/api/timeline", async (req, res) => {
+  try {
+    const events = await TimelineEvent.find().sort({ sortOrder: 1 });
+    res.json(events);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch timeline" });
+  }
+});
+
+// Alerts
+app.get("/api/alerts", async (req, res) => {
+  try {
+    const alerts = await Alert.find({ active: true }).sort({ createdAt: -1 });
+    res.json(alerts);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch alerts" });
+  }
+});
+
+app.post("/api/alerts", authenticateToken, checkRole(['ADMIN']), async (req, res) => {
+  try {
+    const alert = new Alert(req.body);
+    await alert.save();
+    res.status(201).json(alert);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create alert" });
   }
 });
 

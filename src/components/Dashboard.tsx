@@ -27,6 +27,25 @@ export const Dashboard = () => {
   const [content, setContent] = useState('');
   const [statementImageUrl, setStatementImageUrl] = useState('');
 
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertContent, setAlertContent] = useState('');
+  const [alertSeverity, setAlertSeverity] = useState('Monitor');
+
+  const handlePostAlert = async () => {
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ title: alertTitle, content: alertContent, severity: alertSeverity })
+      });
+      if (res.ok) {
+        setAlertTitle('');
+        setAlertContent('');
+        alert("Alert published successfully");
+      }
+    } catch (err) { console.error(err); }
+  };
+
   const handleDeleteStatement = async (id: string) => {
     if (!confirm("Are you sure? This news item will be permanently removed.")) return;
     try {
@@ -34,7 +53,12 @@ export const Dashboard = () => {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) fetchStatements();
+      if (res.ok) {
+        fetchStatements();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to delete statement");
+      }
     } catch (err) { console.error(err); }
   };
 
@@ -44,6 +68,7 @@ export const Dashboard = () => {
   const userEmail = localStorage.getItem('gov_email');
   const token = localStorage.getItem('gov_token');
   const userRole = localStorage.getItem('gov_role') || 'USER';
+  const ADMIN_EMAIL = "crowntechrblx@gmail.com";
   const [isCreatingBill, setIsCreatingBill] = useState(false);
   const [billTitle, setBillTitle] = useState('');
   const [billSummary, setBillSummary] = useState('');
@@ -235,7 +260,12 @@ export const Dashboard = () => {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) fetchMinisters();
+      if (res.ok) {
+        fetchMinisters();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to remove minister");
+      }
     } catch (err) { console.error(err); }
   };
 
@@ -474,7 +504,7 @@ export const Dashboard = () => {
                           <h3 className="font-bold">{s.title}</h3>
                           <p className="text-sm text-gds-dark-grey">{s.date}</p>
                         </div>
-                        {userRole === 'ADMIN' && (
+                        { (userRole === 'ADMIN' || userEmail === ADMIN_EMAIL) && (
                           <button 
                             onClick={() => handleDeleteStatement(s._id!)}
                             className="text-red-600 font-bold text-xs underline"
@@ -510,12 +540,22 @@ export const Dashboard = () => {
                       <div key={p._id || i} className="bg-white p-4 border-l-4 border-purple-600 shadow-sm">
                         <div className="flex justify-between items-start mb-2">
                           <Link to={`/petitions/${p._id || p.id}`} className="font-bold text-gds-blue underline">{p.title}</Link>
-                          {userRole === 'ADMIN' && (
+                          { (userRole === 'ADMIN' || userEmail === ADMIN_EMAIL) && (
                             <button 
                               onClick={async () => {
                                 if (confirm("Delete this petition?")) {
-                                  await fetch(`/api/petitions/${p._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }});
-                                  fetchPetitions();
+                                  try {
+                                    const res = await fetch(`/api/petitions/${p._id}`, { 
+                                      method: 'DELETE', 
+                                      headers: { 'Authorization': `Bearer ${token}` }
+                                    });
+                                    if (res.ok) {
+                                      fetchPetitions();
+                                    } else {
+                                      const err = await res.json();
+                                      alert(err.message || "Failed to delete");
+                                    }
+                                  } catch (err) { console.error(err); }
                                 }
                               }}
                               className="text-red-600 font-bold text-xs underline"
@@ -579,12 +619,25 @@ export const Dashboard = () => {
                           >
                             Update Status
                           </button>
-                          {userRole === 'ADMIN' && (
+                          { (userRole === 'ADMIN' || userEmail === ADMIN_EMAIL) && (
                             <button 
                               onClick={async () => {
-                                if (confirm("Delete this bill?")) {
-                                  await fetch(`/api/bills/${b._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }});
-                                  fetchBills();
+                                if (confirm("Delete this bill? This cannot be undone.")) {
+                                  try {
+                                    const res = await fetch(`/api/bills/${b._id}`, { 
+                                      method: 'DELETE', 
+                                      headers: { 'Authorization': `Bearer ${token}` }
+                                    });
+                                    if (res.ok) {
+                                      fetchBills();
+                                    } else {
+                                      const err = await res.json();
+                                      alert(err.message || "Failed to delete bill");
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                    alert("Error connecting to server");
+                                  }
                                 }
                               }}
                               className="text-red-600 underline text-sm font-bold"
@@ -693,12 +746,57 @@ export const Dashboard = () => {
                 </div>
               </section>
             )}
+
+            {userRole === 'ADMIN' && (
+              <section className="bg-red-50 p-8 border-t-8 border-red-600 shadow-md mt-12">
+                <h2 className="text-3xl font-bold mb-6 text-red-900">National Emergency Alerts</h2>
+                <div className="grid grid-cols-1 gap-6">
+                  <div className="flex flex-col gap-2">
+                    <label className="font-bold">Alert Title</label>
+                    <input 
+                      className="border-2 border-gds-black p-2 bg-white" 
+                      value={alertTitle} 
+                      onChange={e => setAlertTitle(e.target.value)}
+                      placeholder="e.g. Severe Flood Warning"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                     <label className="font-bold">Severity</label>
+                     <select 
+                       className="border-2 border-gds-black p-2 bg-white"
+                       value={alertSeverity}
+                       onChange={e => setAlertSeverity(e.target.value)}
+                     >
+                       <option value="Monitor">Monitor (Black/Gray)</option>
+                       <option value="Severe">Severe (Orange)</option>
+                       <option value="Extreme">Extreme (Red)</option>
+                     </select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="font-bold">Alert Message</label>
+                    <textarea 
+                      className="border-2 border-gds-black p-2 h-32 bg-white" 
+                      value={alertContent}
+                      onChange={e => setAlertContent(e.target.value)}
+                      placeholder="Enter the alert instructions for the public..."
+                    />
+                  </div>
+                  <button 
+                    onClick={handlePostAlert}
+                    className="bg-red-700 text-white py-3 font-bold hover:bg-red-800 transition-colors"
+                  >
+                    Broadcast National Alert
+                  </button>
+                </div>
+              </section>
+            )}
           </div>
 
           <div className="space-y-6">
             <div className="bg-white p-6 border-t-4 border-gds-blue">
               <h3 className="text-xl font-bold mb-4">Quick Links</h3>
               <ul className="space-y-4 text-sm font-bold">
+                <li><Link to="/tax-calculator" className="text-gds-blue underline">Estimate self-employed tax</Link></li>
                 <li><Link to="/bills" className="text-gds-blue underline">View public bills database</Link></li>
                 <li><Link to="/petitions" className="text-gds-blue underline">View active petitions</Link></li>
                 <li><Link to="/statements" className="text-gds-blue underline">View all statements</Link></li>

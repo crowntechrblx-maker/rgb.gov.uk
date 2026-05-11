@@ -4,16 +4,39 @@ import { Link } from 'react-router-dom';
 
 export const BillsList = () => {
   const [bills, setBills] = React.useState<any[]>([]);
+  const userRole = localStorage.getItem('gov_role');
+  const userEmail = localStorage.getItem('gov_email');
+  const token = localStorage.getItem('gov_token');
+  const ADMIN_EMAIL = "crowntechrblx@gmail.com";
+
+  const fetchBills = async () => {
+    try {
+      const res = await fetch('/api/bills');
+      if (res.ok) setBills(await res.json());
+    } catch (err) { console.error(err); }
+  };
 
   React.useEffect(() => {
-    const fetchBills = async () => {
-      try {
-        const res = await fetch('/api/bills');
-        if (res.ok) setBills(await res.json());
-      } catch (err) { console.error(err); }
-    };
     fetchBills();
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure? This bill will be permanently removed.")) return;
+    try {
+      const res = await fetch(`/api/bills/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchBills();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to delete");
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const isAdmin = userRole === 'ADMIN' || userEmail === ADMIN_EMAIL;
 
   return (
     <motion.div 
@@ -77,9 +100,19 @@ export const BillsList = () => {
             ) : (
               bills.map(bill => (
                 <li key={bill._id || bill.id} className="border-b border-gray-200 pb-4">
-                  <Link to={`/bills/${bill._id || bill.id}`} className="text-2xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue block mb-2">
-                    {bill.title}
-                  </Link>
+                  <div className="flex justify-between items-start mb-2">
+                    <Link to={`/bills/${bill._id || bill.id}`} className="text-2xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue block">
+                      {bill.title}
+                    </Link>
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleDelete(bill._id || bill.id)}
+                        className="text-red-600 font-bold text-sm underline hover:no-underline"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-4 text-sm font-bold">
                     <span className="bg-gds-grey px-2 py-0.5">Status: {bill.status}</span>
                     <span className="text-gds-dark-grey mr-2 italic">Originating House: {bill.house}</span>

@@ -14,7 +14,6 @@ export const Header = () => {
               <span className="text-xl md:text-2xl font-bold tracking-tight">GOV.UK</span>
             </Link>
             <nav className="hidden md:flex gap-4 text-sm font-bold border-l border-gray-600 pl-4">
-              <Link to="/gazette" className="hover:underline">The Gazette</Link>
               <Link to="/bills" className="hover:underline">Bills</Link>
               <Link to="/petitions" className="hover:underline">Petitions</Link>
             </nav>

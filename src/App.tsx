@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Link, Navigate, useSearchParams } from 'r
 import { motion, AnimatePresence } from 'motion/react';
 import { Header } from './components/Header';
 import { SearchHero } from './components/SearchHero';
+import { EmergencyAlertBanner } from './components/EmergencyAlertBanner';
 import { PhaseBanner } from './components/PhaseBanner';
 import { PopularServices } from './components/PopularServices';
 import { Footer } from './components/Footer';
@@ -21,10 +22,12 @@ import { StatementsList } from './components/StatementsList';
 import { StatementDetail } from './components/StatementDetail';
 import { PetitionDetail } from './components/PetitionDetail';
 import { BillDetail } from './components/BillDetail';
-import { GazetteList } from './components/GazetteList';
 import { UserProfile } from './components/UserProfile';
 import { SearchResults } from './components/SearchResults';
 import { ServiceStatus } from './components/ServiceStatus';
+import { ServiceTimeline } from './components/ServiceTimeline';
+import { LifeGuide } from './components/LifeGuide';
+import { TaxCalculator } from './components/TaxCalculator';
 import { Privacy, Cookies, Terms, Accessibility } from './components/Legal';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -117,20 +120,20 @@ const Home = () => {
                 </div>
               ))}
 
-              <div className="border-t-2 border-gray-200 pt-4">
-                <span className="text-sm text-gds-dark-grey block mb-1">10 May 2026 — News story</span>
-                <Link to="/statements" className="text-xl font-bold text-gds-blue underline decoration-2 underline-offset-4 hover:text-gds-hover-blue">
-                  Prime Minister announces new measures to support small businesses
-                </Link>
-              </div>
             </div>
             
             <div className="flex flex-col gap-6">
               <div className="bg-gds-grey p-8 flex flex-col gap-4">
                 <h3 className="text-2xl font-bold">Find out how government works</h3>
                 <ul className="space-y-4">
+                  <li><Link to="/tax-calculator" className="text-lg font-bold text-gds-blue underline">Calculate your business tax</Link></li>
                   <li><Link to="/petitions" className="text-lg font-bold text-gds-blue underline">Get involved and have your say</Link></li>
                   <li><Link to="/ministers" className="text-lg font-bold text-gds-blue underline">How government is run and structured</Link></li>
+                  <li><Link to="/timeline" className="text-lg font-bold text-gds-blue underline">Interactive service timeline</Link></li>
+                  <li className="pt-2">
+                    <span className="text-sm font-bold block mb-2">Step-by-step guides (Coming Soon)</span>
+                    <Link to="/guides/set-up-business" className="text-lg font-bold text-gds-blue underline">Set up a business in the UK</Link>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -167,6 +170,7 @@ export default function App() {
       <div className="min-h-screen flex flex-col selection:bg-gds-yellow selection:text-gds-black">
         <CookieBanner />
         <Header />
+        <EmergencyAlertBanner />
         
         <main className="flex-grow">
           <AnimatePresence mode="wait">
@@ -189,7 +193,9 @@ export default function App() {
                 <Route path="/statements" element={<StatementsList />} />
                 <Route path="/statements/:id" element={<StatementDetail />} />
                 <Route path="/ministers" element={<MinistersList />} />
-                <Route path="/gazette" element={<GazetteList />} />
+                <Route path="/timeline" element={<ServiceTimeline />} />
+                <Route path="/guides/:slug" element={<LifeGuide />} />
+                <Route path="/tax-calculator" element={<TaxCalculator />} />
                 <Route path="/status" element={<ServiceStatus />} />
                 <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
                 <Route path="/search" element={<SearchResults />} />

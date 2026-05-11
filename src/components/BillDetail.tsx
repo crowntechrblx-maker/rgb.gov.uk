@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Clock, FileText, Landmark, Heart } from 'lucide-react';
+import { ArrowLeft, Clock, FileText, Landmark, Heart, Trash2 } from 'lucide-react';
 
 export const BillDetail = () => {
   const { id } = useParams();
   const [bill, setBill] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const token = localStorage.getItem('gov_token');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch(`/api/bills/${id}`)
@@ -29,6 +31,7 @@ export const BillDetail = () => {
         .then(res => res.json())
         .then(profile => {
           setIsFollowing(profile.followedBills?.some((b: any) => b._id === id || b === id));
+          setIsAdmin(profile.role === 'ADMIN');
         });
     }
   }, [id, token]);
@@ -49,6 +52,26 @@ export const BillDetail = () => {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this bill? This action cannot be undone.")) return;
+
+    try {
+      const res = await fetch(`/api/bills/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        navigate('/bills');
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to delete bill");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while deleting the bill.");
     }
   };
 
@@ -163,6 +186,17 @@ export const BillDetail = () => {
                 <button className="w-full bg-gds-black text-white py-3 font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors">
                   <FileText className="w-5 h-5" /> Download text of the Bill
                 </button>
+
+                {isAdmin && (
+                  <div className="pt-4 border-t border-gray-300 mt-4">
+                    <button 
+                      onClick={handleDelete}
+                      className="w-full bg-white text-red-600 border-2 border-red-600 py-3 font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-5 h-5" /> Delete Bill
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
